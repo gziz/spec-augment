@@ -8,7 +8,7 @@ from plots import plot_spectrogram
 
 
 
-torch_data, sr  = torchaudio.load('lex_6.wav')
+torch_data, sr  = torchaudio.load('audio_data/lex_6.wav')
 # Convert audio array to mel spectrogram
 librosa_mel = librosa.feature.melspectrogram(y=torch_data[0].numpy(),
                                              n_fft=2048,
