@@ -47,7 +47,7 @@ def mask_along_axis_v2(
     specgram,
     axis: int,
     num_masks: int,
-    mask_param: int = -1,
+    mask_param: int,
     p: float = 1.0,
     mask_value: float = 0.0
 ):
