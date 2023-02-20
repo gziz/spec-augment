@@ -2,9 +2,9 @@ import torch
 import torchaudio
 import librosa
 
-from transforms import SpecAugment
-from fairseq_spec import SpecAugmentTransform
-from plots import plot_spectrogram
+from transforms_v2 import SpecAugment
+from utils.local_fairseq import SpecAugmentTransform
+from utils.plots import plot_spectrogram
 
 
 
@@ -16,20 +16,17 @@ librosa_mel = librosa.feature.melspectrogram(y=torch_data[0].numpy(),
                                              sr=sr)
 
 ### Current Implementation ###
-librosa_mel = torch.tensor(librosa_mel)
 
 sAug = SpecAugment(
-            time_warp_w = 150,
-            freq_mask_n = 2,
-            freq_mask_f = 10,
-            time_mask_n = 3,
-            time_mask_t = 40,
+            warp_axis=1,
+            warp_w = 100,
+            freq_mask_num = 2,
+            freq_mask_param = 10,
+            freq_mask_p = 1.0,
+            time_mask_num = 3,
+            time_mask_param = 50,
             time_mask_p = 1.0,
 )
 augmented = sAug(librosa_mel)
-
-# Plot only receives 2D
-if augmented.dim() == 3:
-    augmented = augmented[0].squeeze()
 
 plot_spectrogram(augmented)
