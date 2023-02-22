@@ -39,8 +39,12 @@ class SpecAugment(torch.nn.Module):
         self.mask_value = mask_value
 
         
-    def forward(self, specgram):
-        specgram = F.warp_axis(specgram, self.warp_axis, self.warp_w)
-        specgram = F.mask_along_axis_v2(specgram, 0, self.freq_mask_num, self.freq_mask_param, self.freq_mask_p, self.mask_value)
-        specgram = F.mask_along_axis_v2(specgram, 1, self.time_mask_num, self.time_mask_param, self.time_mask_p, self.mask_value)
+    def forward(self, specgram, warp = 'cv2'):
+        if warp=='cv2':
+            specgram = F.warp_axis_cv2(specgram, self.warp_axis, self.warp_w)
+        else:
+            specgram = F.warp_axis_torch(specgram, self.warp_axis, self.warp_w)
+
+        specgram = F.mask_along_axis(specgram, 0, self.freq_mask_num, self.freq_mask_param, self.freq_mask_p, self.mask_value)
+        specgram = F.mask_along_axis(specgram, 1, self.time_mask_num, self.time_mask_param, self.time_mask_p, self.mask_value)
         return specgram

@@ -1,6 +1,7 @@
 import numpy as np
+import torch
 
-def warp_axis(specgram, axis:int, W:float):
+def warp_axis_cv2(specgram, axis:int, W:float):
     """
     Warp axis (frequency or time) between W boundaries, starting from point w0, the warp 
     direction can be negative or positive, depending on the randomly chosen distance w.
@@ -37,13 +38,57 @@ def warp_axis(specgram, axis:int, W:float):
     return specgram
 
 
+def warp_axis_torch(specgram, axis:int, W:float):
+    """
+    Warp axis (frequency or time) between W boundaries, starting from point w0, the warp 
+    direction can be negative or positive, depending on the randomly chosen distance w.
+    Args:
+        specgram: A tensor|array with dimensions (freq, num_frame)
+        axis: Axis where the warp takes place
+        W: Boundary of time steps from where within the warp takes place (W, num_warped_axis - W)
+    Returns:
+        tensor | array: Warped spectrogram
+    """
+    num_warped = specgram.shape[axis]
+    num_non_warped = specgram.shape[abs(axis-1)]
+
+    if W == 0:
+        return specgram
+    assert 2 * W < num_warped, (
+        f"W param {W} must be smaller than half the size of the warped axis {num_warped}")
+    
+    w0 = np.random.randint(W, num_warped - W)
+    w = np.random.randint(-W + 1, W)
+
+    if axis == 0:
+        lower, upper = specgram[:w0, :], specgram[w0:, :]
+        lower_sz, upper_sz = (w0 + w, num_non_warped), (num_warped - w0 - w, num_non_warped)
+    else:
+        lower, upper = specgram[:, :w0], specgram[:, w0:]
+        lower_sz, upper_sz = (num_non_warped, w0 + w), (num_non_warped, num_warped - w0 - w)
+    
+    lower = lower[(None,)*2]
+    upper = upper[(None,)*2]
+
+    lower = torch.nn.functional.interpolate(lower, size=lower_sz, mode='bilinear')
+    upper = torch.nn.functional.interpolate(upper, size=upper_sz, mode='bilinear')
+    
+    lower.squeeze_()
+    upper.squeeze_()
+
+    specgram = torch.cat((lower, upper), axis=axis)
+
+    return specgram
+
+
+
 def _get_mask_param(mask_param: int, p: float, axis_length: int) -> int:
     if mask_param == 0:
         return int(axis_length * p)
     else:
         return min(mask_param, int(axis_length * p))
 
-def mask_along_axis_v2(
+def mask_along_axis(
     specgram,
     axis: int,
     num_masks: int,
