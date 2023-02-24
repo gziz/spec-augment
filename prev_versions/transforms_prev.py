@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 from torch import Tensor
 
-import functional_prev as F
+import prev_versions.functional_prev as F
 
 
 class TimeStretch(torch.nn.Module):
