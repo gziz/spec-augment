@@ -2,26 +2,23 @@ import torch
 import torchaudio
 import librosa
 
-from transforms_v2 import SpecAugment
-from functional_v2 import warp_axis_torch, mask_along_axis
+from transforms import SpecAugment
+from functional import warp_axis_torch, mask_along_axis
 from utils.plots import plot_spectrogram
 
+def create_specgram(audio_path: str, num_batch: int):
+    torch_data, sr  = torchaudio.load(audio_path)
+    # Convert audio array to mel spectrogram
+    librosa_mel = librosa.feature.melspectrogram(y=torch_data[0].numpy(),
+                                                n_fft=2048,
+                                                win_length=1024,
+                                                sr=sr)
 
+    tensor_mel = torch.tensor(librosa_mel)
+    stacked_mel = tensor_mel.repeat((num_batch,1,1))
+    return stacked_mel
 
-torch_data, sr  = torchaudio.load('audio_data/lex_30.wav')
-
-# Convert audio array to mel spectrogram
-librosa_mel = librosa.feature.melspectrogram(y=torch_data[0].numpy(),
-                                             n_fft=2048,
-                                             win_length=1024,
-                                             sr=sr)
-
-tensor_mel = torch.tensor(librosa_mel)
-stacked_mel = tensor_mel.repeat((1000,1,1))
-
-#augmented = warp_axis_torch(stacked_mel, 2, 1200)
-#augmented = mask_along_axis(stacked_mel, 1, 3, 20)
-
+batch_specgram = create_specgram("audio_data/lex_30.wav", 500)
 
 spec = SpecAugment(
         warp_axis = 2,
@@ -34,6 +31,6 @@ spec = SpecAugment(
         time_mask_p = .05
 )
 
-augmented = spec(stacked_mel, 'torch')
+augmented = spec(batch_specgram)
 
-#plot_spectrogram(augmented[1])
+#plot_spectrogram(augmented[0])
