@@ -39,8 +39,8 @@ class SpecAugment(torch.nn.Module):
         self.mask_value = mask_value
 
         
-    def forward(self, specgram):
-
+    def forward(self, specgram: torch.Tensor):
+        "Apply SpecAugment to spectrogram with dimensions (batch, frequency, time)"
         if specgram.dim() == 2:
             specgram = specgram.unsqueeze_(0)
 
