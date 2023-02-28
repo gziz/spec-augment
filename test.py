@@ -21,7 +21,7 @@ def create_specgram(audio_path: str, num_batch: int):
 
 
 
-batch_specgram = create_specgram("audio_data/lex_30.wav", 500)
+batch_specgram = create_specgram("audio_data/lex_30.wav", 100)
 
 spec = SpecAugment(
         warp_axis = 2,
@@ -33,6 +33,6 @@ spec = SpecAugment(
         time_mask_param = 0,
         time_mask_p = .05
 )
-for _ in range(50):
+for _ in range(100):
     augmented = spec(batch_specgram)
 #plot_spectrogram(augmented[0])
