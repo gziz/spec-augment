@@ -33,6 +33,6 @@ spec = SpecAugment(
         time_mask_param = 0,
         time_mask_p = .05
 )
-for _ in range(100):
+for _ in range(200):
     augmented = spec(batch_specgram)
 #plot_spectrogram(augmented[0])
