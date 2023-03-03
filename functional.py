@@ -12,7 +12,7 @@ def warp_axis_torch(specgram:Tensor, axis:int, W:float):
         axis: Axis where the warp takes place
         W: Boundary of time steps where the warp takes place (W, num_warped_axis - W)
     Returns:
-        tensor: Warped spectrogram
+        Tensor: Warped spectrogram of dimensions (batch, freq, time)
     """
     
     if axis not in [1, 2]:
@@ -50,6 +50,7 @@ def warp_axis_torch(specgram:Tensor, axis:int, W:float):
     return specgram
 
 
+
 def mask_along_axis(
     specgram: Tensor,
     axis: int,
@@ -69,13 +70,10 @@ def mask_along_axis(
         p: Max proportion of masked rows/cols for each individual mask.
         mask_value: Value for the masked portions
     Returns
-        specgram: Masked tensor of dimensions (batch, freq, time)
+        Tensor: Masked spectrogram of dimensions (batch, freq, time)
     """
     if axis not in [1, 2]:
         raise ValueError("Only Frequency and Time masking are supported")
-
-    if not 0.0 <= p <= 1.0:
-        raise ValueError(f"The value of p must be between 0.0 and 1.0 ({p} given).")
 
     mask_param = min(mask_param, int(specgram.shape[axis] * p))
     if mask_param < 1:
@@ -94,6 +92,42 @@ def mask_along_axis(
 
     return specgram
 
+
+
+def spec_augment(
+    specgram: Tensor,
+    warp_axis: int, 
+    warp_param: int = 0,
+    freq_mask_num: int = 0,
+    freq_mask_param: int = 0,
+    freq_mask_p: float = 0.0,
+    time_mask_num: int = 0,
+    time_mask_param: int = 0,
+    time_mask_p: float = 0.0,
+    mask_value: float = 0.0
+):
+    """
+    SpecAugment to spectrogram with dimensions (batch, frequency, time)
+    Args
+        specgram: Tensor with dimensions (batch, frequency, time)
+        warp_axis: Axis where the warp takes place (0->freq, 1->time)
+        warp_param: Boundaries where warp takes place (W, N - W)
+        freq_mask_num: Number of masks to apply to the frequency axis
+        freq_mask_param: Max length of any individual frequency mask
+        freq_mask_p: Max proportion that any individual freq mask can have
+        time_mask_num: Number of masks to apply to the time axis
+        time_mask_param: Max length of any individual time mask
+        time_mask_p: Max proportion that any individual time mask can have
+    Returns
+        Tensor: Augmented spectrogram with dimensions (batch, frequency, time)
+    """
+    if specgram.dim() == 2:
+        specgram = specgram.unsqueeze_(0)
+
+    specgram = warp_axis_torch(specgram, warp_axis, warp_param)
+    specgram = mask_along_axis(specgram, 1, freq_mask_num, freq_mask_param, freq_mask_p, mask_value)
+    specgram = mask_along_axis(specgram, 2, time_mask_num, time_mask_param, time_mask_p, mask_value)
+    return specgram
 
 
 
