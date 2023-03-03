@@ -50,18 +50,12 @@ def warp_axis_torch(specgram:Tensor, axis:int, W:float):
     return specgram
 
 
-def _get_mask_param(mask_param: int, p: float, axis_length: int) -> int:
-    if mask_param == 0:
-        return int(axis_length * p)
-    else:
-        return min(mask_param, int(axis_length * p))
-
 def mask_along_axis(
     specgram: Tensor,
     axis: int,
     num_masks: int,
     mask_param: int,
-    p: float = 1.0,
+    p: float = 0.0,
     mask_value: float = 0.0
 ):
     """
@@ -83,7 +77,7 @@ def mask_along_axis(
     if not 0.0 <= p <= 1.0:
         raise ValueError(f"The value of p must be between 0.0 and 1.0 ({p} given).")
 
-    mask_param = _get_mask_param(mask_param, p, specgram.shape[axis])
+    mask_param = min(mask_param, int(specgram.shape[axis] * p))
     if mask_param < 1:
         return specgram
     
@@ -91,7 +85,6 @@ def mask_along_axis(
 
     for _ in range(num_masks):
         mask_start = torch.randint(specgram.shape[axis] - value, ())
-        #mask_start = int(np.random.rand() * (specgram.shape[axis] - value))
         mask_end = mask_start + value
 
         if axis == 1:
