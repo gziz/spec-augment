@@ -125,6 +125,8 @@ def spec_augment(
     if specgram.dim() == 2:
         specgram = specgram.unsqueeze_(0)
 
+    specgram = specgram.clone()
+    
     specgram = warp_axis_torch(specgram, warp_axis, warp_param)
     specgram = mask_along_axis(specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value)
     specgram = mask_along_axis(specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value)
