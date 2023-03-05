@@ -94,14 +94,15 @@ def mask_along_axis(
 
 
 
+
 def spec_augment(
     specgram: Tensor,
-    warp_axis: int, 
+    warp_axis: int = 1,
     warp_param: int = 0,
-    freq_mask_num: int = 0,
+    freq_mask_n: int = 0,
     freq_mask_param: int = 0,
     freq_mask_p: float = 0.0,
-    time_mask_num: int = 0,
+    time_mask_n: int = 0,
     time_mask_param: int = 0,
     time_mask_p: float = 0.0,
     mask_value: float = 0.0
@@ -111,13 +112,13 @@ def spec_augment(
     Args
         specgram: Tensor with dimensions (batch, frequency, time)
         warp_axis: Axis where the warp takes place (0->freq, 1->time)
-        warp_param: Boundaries where warp takes place (W, N - W)
-        freq_mask_num: Number of masks to apply to the frequency axis
-        freq_mask_param: Max length of any individual frequency mask
+        warp_param: Boundaries where warp takes place (W, N - W), (W in paper)
+        freq_mask_n: Number of masks to apply to the frequency axis, (mF in paper)
+        freq_mask_param: Max length of any individual frequency mask, (F in paper)
         freq_mask_p: Max proportion that any individual freq mask can have
-        time_mask_num: Number of masks to apply to the time axis
-        time_mask_param: Max length of any individual time mask
-        time_mask_p: Max proportion that any individual time mask can have
+        time_mask_n: Number of masks to apply to the time axis, (mT in paper)
+        time_mask_param: Max length of any individual time mask, (T in paper)
+        time_mask_p: Max proportion that any individual time mask can have, (p in paper)
     Returns
         Tensor: Augmented spectrogram with dimensions (batch, frequency, time)
     """
@@ -125,10 +126,9 @@ def spec_augment(
         specgram = specgram.unsqueeze_(0)
 
     specgram = warp_axis_torch(specgram, warp_axis, warp_param)
-    specgram = mask_along_axis(specgram, 1, freq_mask_num, freq_mask_param, freq_mask_p, mask_value)
-    specgram = mask_along_axis(specgram, 2, time_mask_num, time_mask_param, time_mask_p, mask_value)
+    specgram = mask_along_axis(specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value)
+    specgram = mask_along_axis(specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value)
     return specgram
-
 
 
 # Outdated
