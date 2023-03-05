@@ -2,7 +2,7 @@ import torch
 from torch import Tensor
 
 
-def warp_axis_torch(specgram:Tensor, axis:int, W:float):
+def warp_axis_torch(specgram: Tensor, axis: int, W: float):
     """
     Warp axis (frequency or time) between W boundaries, starting from point w0, the warp 
     direction can be negative or positive, depending on the randomly chosen distance w.
@@ -13,10 +13,10 @@ def warp_axis_torch(specgram:Tensor, axis:int, W:float):
     Returns:
         Tensor: Warped spectrogram of dimensions (batch, freq, time)
     """
-    
+
     if axis not in [1, 2]:
-            raise ValueError("Only Frequency and Time masking are supported")
-            
+        raise ValueError("Only Frequency and Time masking are supported")
+
     num_warped = specgram.shape[axis]
     num_non_warped = specgram.shape[1 if axis == 2 else 2]
 
@@ -24,24 +24,28 @@ def warp_axis_torch(specgram:Tensor, axis:int, W:float):
         return specgram
     assert 2 * W < num_warped, (
         f"Warp param (W) {W} must be smaller than half the size of the warped axis {num_warped}")
-    
+
     w0 = torch.randint(W, num_warped - W, ())
     w = torch.randint(-W + 1, W, ())
 
     if axis == 1:
         lower, upper = specgram[:, :w0, :], specgram[:, w0:, :]
-        lower_sz, upper_sz = (w0 + w, num_non_warped), (num_warped - w0 - w, num_non_warped)
+        lower_sz = (w0 + w, num_non_warped)
+        upper_sz = (num_warped - w0 - w, num_non_warped)
     else:
         lower, upper = specgram[:, :, :w0], specgram[:, :, w0:]
-        lower_sz, upper_sz = (num_non_warped, w0 + w), (num_non_warped, num_warped - w0 - w)
-    
+        lower_sz = (num_non_warped, w0 + w)
+        upper_sz = (num_non_warped, num_warped - w0 - w)
+
     # interpolate receives 4D: (batch, channel, freq, time)
     lower = lower.unsqueeze(1)
     upper = upper.unsqueeze(1)
 
-    lower = torch.nn.functional.interpolate(lower, size=lower_sz, mode='bilinear')
-    upper = torch.nn.functional.interpolate(upper, size=upper_sz, mode='bilinear')
-    
+    lower = torch.nn.functional.interpolate(
+        lower, size=lower_sz, mode='bilinear')
+    upper = torch.nn.functional.interpolate(
+        upper, size=upper_sz, mode='bilinear')
+
     lower.squeeze_(1)
     upper.squeeze_(1)
 
@@ -76,7 +80,7 @@ def mask_along_axis(
     mask_param = min(mask_param, int(specgram.shape[axis] * p))
     if mask_param < 1:
         return specgram
-    
+
     mask_size = torch.randint(mask_param, ())
 
     for _ in range(num_masks):
@@ -120,13 +124,15 @@ def spec_augment(
     """
 
     specgram = specgram.clone()
-    
+
     if specgram.dim() == 2:
         specgram = specgram.unsqueeze_(0)
-    
+
     specgram = warp_axis_torch(specgram, warp_axis, warp_param)
-    specgram = mask_along_axis(specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value)
-    specgram = mask_along_axis(specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value)
+    specgram = mask_along_axis(
+        specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value)
+    specgram = mask_along_axis(
+        specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value)
     return specgram
 
 
@@ -143,6 +149,7 @@ class SpecAugmentTransform(torch.nn.Module):
         time_mask_param: Max length of any individual time mask, (T in paper)
         time_mask_p: Max proportion that any individual time mask can have, (p in paper)
     """
+
     def __init__(
         self,
         warp_axis: int = 2,
