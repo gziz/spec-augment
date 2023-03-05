@@ -1,9 +1,9 @@
 import argparse
 
-from transforms import SpecAugment
+from transforms import SpecAugmentTransform
 from functional import *
 from utils.spectrogram import plot_specgram, create_specgram
-
+#from final import SpecAugmentTransform, spec_augment
 
 batch_specgram = create_specgram("audio_data/lex_30.wav", batch_sz = 100)
 
@@ -15,17 +15,16 @@ args = parser.parse_args()
 params = {
     "warp_axis": 2,
     "warp_param": 1000,
-    "freq_mask_num": 3,
+    "freq_mask_n": 3,
     "freq_mask_param": 30,
     "freq_mask_p": 0.1,
-    "time_mask_num": 3,
+    "time_mask_n": 3,
     "time_mask_param": 500,
     "time_mask_p": 0.5
 }
 
-
 if args.paradigm == "modular":
-    spec = SpecAugment(**params)
+    spec = SpecAugmentTransform(**params)
     for _ in range(args.loops):
         augmented = spec(batch_specgram)
 
