@@ -2,9 +2,9 @@ import torch
 from torch import Tensor
 
 
-def warp_axis_torch(specgram: Tensor, axis: int, W: float):
+def warp_axis_torch(specgram: Tensor, axis: int, W: float) -> Tensor:
     """
-    Warp axis (frequency or time) between W boundaries, starting from point w0, the warp 
+    Warp axis (frequency or time) between W boundaries, starting from point w0, the warp
     direction can be negative or positive, depending on the randomly chosen distance w.
     Args:
         specgram: A tensor with dimensions (batch, freq, time)
@@ -25,8 +25,8 @@ def warp_axis_torch(specgram: Tensor, axis: int, W: float):
     assert 2 * W < num_warped, (
         f"Warp param (W) {W} must be smaller than half the size of the warped axis {num_warped}")
 
-    w0 = torch.randint(W, num_warped - W, ())
-    w = torch.randint(-W + 1, W, ())
+    w0 = torch.randint(W, num_warped - W, [])
+    w = torch.randint(-W + 1, W, [])
 
     if axis == 1:
         lower, upper = specgram[:, :w0, :], specgram[:, w0:, :]
@@ -49,7 +49,7 @@ def warp_axis_torch(specgram: Tensor, axis: int, W: float):
     lower.squeeze_(1)
     upper.squeeze_(1)
 
-    specgram = torch.cat((lower, upper), axis=axis)
+    specgram = torch.cat([lower, upper], axis=axis)
     return specgram
 
 
@@ -60,7 +60,7 @@ def mask_along_axis(
     mask_param: int,
     p: float = 0.0,
     mask_value: float = 0.0
-):
+) -> Tensor:
     """
     Apply mask along a spectrogram.
     The length of the mask is randomly chosen, with a cap on mask_param.
@@ -88,16 +88,16 @@ def mask_along_axis(
         mask_end = mask_start + mask_size
 
         if axis == 1:
-            specgram[:, mask_start: mask_end, :] = mask_value
+            specgram[None, mask_start: mask_end, None] = mask_value
         else:
-            specgram[:, :, mask_start: mask_end] = mask_value
+            specgram[None, None, mask_start: mask_end] = mask_value
 
     return specgram
 
 
 def spec_augment(
     specgram: Tensor,
-    warp_axis: int = 1,
+    warp_axis: int = 2,
     warp_param: int = 0,
     freq_mask_n: int = 0,
     freq_mask_param: int = 0,
@@ -105,8 +105,8 @@ def spec_augment(
     time_mask_n: int = 0,
     time_mask_param: int = 0,
     time_mask_p: float = 0.0,
-    mask_value: float = 0.0
-):
+    mask_value: float = 0.0,
+) -> Tensor:
     """
     SpecAugment to spectrogram with dimensions (batch, frequency, time)
     Args
@@ -138,7 +138,7 @@ def spec_augment(
 
 class SpecAugmentTransform(torch.nn.Module):
     """
-    Data augmentation for spectrogram (audio)
+    SpecAugment (https://arxiv.org/abs/1904.08779)
     Args
         warp_axis: Axis where the warp takes place (0->freq, 1->time)
         warp_param: Boundaries where warp takes place (W, N - W), (W in paper)
@@ -174,37 +174,44 @@ class SpecAugmentTransform(torch.nn.Module):
         self.time_mask_p = time_mask_p
         self.mask_value = mask_value
 
-    def forward(self, specgram: torch.Tensor):
+    def forward(self, specgram: Tensor) -> Tensor:
         """
-        Args 
+        Args
             specgram: Tensor with dimensions (batch, frequency, time)
         Returns
             specgram: Augmented specgram tensor with dimensions (batch, frequency, time)
         """
+
+        if not self.training:
+            return specgram
+
         return spec_augment(specgram, self.warp_axis, self.warp_param,
                             self.freq_mask_n, self.freq_mask_param, self.freq_mask_p,
                             self.time_mask_n, self.time_mask_param, self.time_mask_p,
                             self.mask_value)
 
-    def libri_speech_basic(self):
+    def eval(self) -> None:
+        self.training = False
+
+    def libri_speech_basic(self) -> None:
         self.warp_param = 80
         self.freq_mask_param, self.freq_mask_n = 27, 1
         self.time_mask_param, self.time_mask_n = 100, 1
         self.time_mask_p = 1.0
 
-    def libri_speech_double(self):
+    def libri_speech_double(self) -> None:
         self.warp_param = 80
         self.freq_mask_param, self.freq_mask_n = 27, 2
         self.time_mask_param, self.time_mask_n = 100, 2
         self.time_mask_p = 1.0
 
-    def switchboard_mild(self):
+    def switchboard_mild(self) -> None:
         self.warp_param = 40
         self.freq_mask_param, self.freq_mask_n = 15, 2
         self.time_mask_param, self.time_mask_n = 70, 2
         self.time_mask_p = 0.2
 
-    def switchboard_strong(self):
+    def switchboard_strong(self) -> None:
         self.warp_param = 40
         self.freq_mask_param, self.freq_mask_n = 27, 2
         self.time_mask_param, self.time_mask_n = 70, 2
