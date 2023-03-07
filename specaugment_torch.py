@@ -22,8 +22,9 @@ def warp_axis_torch(specgram: Tensor, axis: int, W: float) -> Tensor:
 
     if W == 0:
         return specgram
-    assert 2 * W < num_warped, (
-        f"Warp param (W) {W} must be smaller than half the size of the warped axis {num_warped}")
+    assert (
+        2 * W < num_warped
+    ), f"Warp param (W) {W} must be smaller than half the size of the warped axis {num_warped}"
 
     w0 = torch.randint(W, num_warped - W, [])
     w = torch.randint(-W + 1, W, [])
@@ -41,10 +42,8 @@ def warp_axis_torch(specgram: Tensor, axis: int, W: float) -> Tensor:
     lower = lower.unsqueeze(1)
     upper = upper.unsqueeze(1)
 
-    lower = torch.nn.functional.interpolate(
-        lower, size=lower_sz, mode='bilinear')
-    upper = torch.nn.functional.interpolate(
-        upper, size=upper_sz, mode='bilinear')
+    lower = torch.nn.functional.interpolate(lower, size=lower_sz, mode="bilinear")
+    upper = torch.nn.functional.interpolate(upper, size=upper_sz, mode="bilinear")
 
     lower.squeeze_(1)
     upper.squeeze_(1)
@@ -59,7 +58,7 @@ def mask_along_axis(
     num_masks: int,
     mask_param: int,
     p: float = 0.0,
-    mask_value: float = 0.0
+    mask_value: float = 0.0,
 ) -> Tensor:
     """
     Apply mask along a spectrogram.
@@ -88,9 +87,9 @@ def mask_along_axis(
         mask_end = mask_start + mask_size
 
         if axis == 1:
-            specgram[None, mask_start: mask_end, None] = mask_value
+            specgram[None, mask_start:mask_end, None] = mask_value
         else:
-            specgram[None, None, mask_start: mask_end] = mask_value
+            specgram[None, None, mask_start:mask_end] = mask_value
 
     return specgram
 
@@ -130,9 +129,11 @@ def spec_augment(
 
     specgram = warp_axis_torch(specgram, warp_axis, warp_param)
     specgram = mask_along_axis(
-        specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value)
+        specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value
+    )
     specgram = mask_along_axis(
-        specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value)
+        specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value
+    )
     return specgram
 
 
@@ -160,8 +161,7 @@ class SpecAugmentTransform(torch.nn.Module):
         time_mask_n: int = 0,
         time_mask_param: int = 0,
         time_mask_p: float = 1.0,
-        mask_value: float = 0.0
-
+        mask_value: float = 0.0,
     ) -> None:
         super(SpecAugmentTransform, self).__init__()
         self.warp_axis = warp_axis
@@ -185,10 +185,18 @@ class SpecAugmentTransform(torch.nn.Module):
         if not self.training:
             return specgram
 
-        return spec_augment(specgram, self.warp_axis, self.warp_param,
-                            self.freq_mask_n, self.freq_mask_param, self.freq_mask_p,
-                            self.time_mask_n, self.time_mask_param, self.time_mask_p,
-                            self.mask_value)
+        return spec_augment(
+            specgram,
+            self.warp_axis,
+            self.warp_param,
+            self.freq_mask_n,
+            self.freq_mask_param,
+            self.freq_mask_p,
+            self.time_mask_n,
+            self.time_mask_param,
+            self.time_mask_p,
+            self.mask_value,
+        )
 
     def eval(self) -> None:
         self.training = False
