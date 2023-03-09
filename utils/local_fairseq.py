@@ -5,15 +5,11 @@ import cv2
 import random
 
 import numpy as np
-from fairseq.data.audio.feature_transforms import (
-    AudioFeatureTransform,
-)
-
 """
 Modifications
 L103, L104: np.random.randint -> random.randint
 L104: (-self.time_warp_w-1, self.time_warp_w)
-    ->(-self.time_warp_w, self.time_warp_w+1)
+    ->(-self.time_warp_w-1, self.time_warp_w+1)
 """
 
 class SpecAugmentTransform:
