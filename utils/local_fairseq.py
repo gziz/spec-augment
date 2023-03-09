@@ -2,15 +2,21 @@ import math
 import numbers
 from typing import Optional
 import cv2
+import random
 
 import numpy as np
 from fairseq.data.audio.feature_transforms import (
     AudioFeatureTransform,
 )
 
+"""
+Modifications
+L103, L104: np.random.randint -> random.randint
+L104: (-self.time_warp_w-1, self.time_warp_w)
+    ->(-self.time_warp_w, self.time_warp_w+1)
+"""
 
-class SpecAugmentTransform():
-
+class SpecAugmentTransform:
     @classmethod
     def from_config_dict(cls, config=None):
         _config = {} if config is None else config
@@ -95,8 +101,8 @@ class SpecAugmentTransform():
             if 2 * self.time_warp_w < num_frames:
                 import cv2
 
-                w0 = np.random.randint(self.time_warp_w, num_frames - self.time_warp_w)
-                w = np.random.randint(-self.time_warp_w + 1, self.time_warp_w)
+                w0 = random.randint(self.time_warp_w, num_frames - self.time_warp_w)
+                w = random.randint(-self.time_warp_w, self.time_warp_w+1)
                 upper, lower = distorted[:w0, :], distorted[w0:, :]
                 upper = cv2.resize(
                     upper, dsize=(num_freqs, w0 + w), interpolation=cv2.INTER_LINEAR
@@ -130,7 +136,6 @@ class SpecAugmentTransform():
 
 
 def time_warp(spectrogram, time_warp_w):
-
     num_frames = spectrogram.shape[1]  # or 'tau' in the paper.
     num_freqs = spectrogram.shape[0]  # or 'miu' in the paper.
 

@@ -1,171 +1,169 @@
-import numpy as np
+import random
 import torch
 from torch import Tensor
 
+def warp_along_axis(specgram: Tensor, axis: int, max_warp_length: int) -> Tensor:
+    """
+    Apply a warp axis to spectrogram.
 
-def warp_axis_torch(specgram:Tensor, axis:int, W:float):
+    :param specgram:
+        Tensor to warp. *Shape:* :math:`(N,F,T)`, where :math:`N`
+        is the batch size, :math:`F` is the frequency axis, and
+        :math:`T` is the time axis.
+    :param axis:
+        Axis where the warp takes place
+    :param max_warp_length:
+        Boundary of time steps where the warp takes place (max_warp_length, warped_dim_size - max_warp_length)
+
+    :returns:
+        max_warp_lengtharped tensor spectrogram of dimensions (batch, freq, time)
+
+    .. note::
+        Warp takes place between the max_warp_length boundaries, starting from point w0, the warp
+        direction can be negative or positive, depending on the randomly chosen distance w.
     """
-    Warp axis (frequency or time) between W boundaries, starting from point w0, the warp 
-    direction can be negative or positive, depending on the randomly chosen distance w.
-    Args:
-        specgram: A tensor with dimensions (batch, freq, time)
-        axis: Axis where the warp takes place
-        W: Boundary of time steps where the warp takes place (W, num_warped_axis - W)
-    Returns:
-        Tensor: Warped spectrogram of dimensions (batch, freq, time)
-    """
+
+    if max_warp_length == 0:
+        return specgram
     
     if axis not in [1, 2]:
-            raise ValueError("Only Frequency and Time masking are supported")
-            
-    num_warped = specgram.shape[axis]
-    num_non_warped = specgram.shape[1 if axis == 2 else 2]
+        raise ValueError("Only Frequency and Time masking are supported")
 
-    if W == 0:
-        return specgram
-    assert 2 * W < num_warped, (
-        f"W param {W} must be smaller than half the size of the warped axis {num_warped}")
+    warped_dim_size = specgram.shape[axis]
+    non_warped_dim_size = specgram.shape[1 if axis == 2 else 2]
+
+    if 2 * max_warp_length >= warped_dim_size:
+        raise ValueError(
+            f"max_warp_length param {max_warp_length} must be smaller than half the size of the warped axis {warped_dim_size}")
+
+    w0 = random.randint(max_warp_length, warped_dim_size - max_warp_length)
+    w = random.randint(-max_warp_length, max_warp_length + 1)
     
-    w0 = torch.randint(W, num_warped - W, ())
-    w = torch.randint(-W + 1, W, ())
-
     if axis == 1:
         lower, upper = specgram[:, :w0, :], specgram[:, w0:, :]
-        lower_sz, upper_sz = (w0 + w, num_non_warped), (num_warped - w0 - w, num_non_warped)
+        lower_sz = (w0 + w, non_warped_dim_size)
+        upper_sz = (warped_dim_size - w0 - w, non_warped_dim_size)
     else:
         lower, upper = specgram[:, :, :w0], specgram[:, :, w0:]
-        lower_sz, upper_sz = (num_non_warped, w0 + w), (num_non_warped, num_warped - w0 - w)
-    
+        lower_sz = (non_warped_dim_size, w0 + w)
+        upper_sz = (non_warped_dim_size, warped_dim_size - w0 - w)
+
     # interpolate receives 4D: (batch, channel, freq, time)
     lower = lower.unsqueeze(1)
     upper = upper.unsqueeze(1)
 
-    lower = torch.nn.functional.interpolate(lower, size=lower_sz, mode='bilinear')
-    upper = torch.nn.functional.interpolate(upper, size=upper_sz, mode='bilinear')
-    
-    lower.squeeze_(1)
-    upper.squeeze_(1)
+    lower = torch.nn.functional.interpolate(lower, size=lower_sz, mode="bilinear")
+    upper = torch.nn.functional.interpolate(upper, size=upper_sz, mode="bilinear")
 
-    specgram = torch.cat((lower, upper), axis=axis)
-    return specgram
+    lower = lower.squeeze(1)
+    upper = upper.squeeze(1)
 
+    return torch.cat([lower, upper], dim=axis)
 
 
 def mask_along_axis(
     specgram: Tensor,
     axis: int,
     num_masks: int,
-    mask_param: int,
-    p: float = 0.0,
-    mask_value: float = 0.0
-):
+    max_mask_length: int,
+    max_mask_proportion: float = 0.0,
+    mask_value: float = 0.0,
+) -> Tensor:
     """
-    Apply mask along a spectrogram.
-    The length of the mask is randomly chosen, with a cap on mask_param.
-    Args
-        specgram: A tensor with dimensions (batch, freq, time)
-        axis: Masking is applied (freq -> 1, time -> 2)
-        num_masks: Number of masks
-        mask_param: Max length allowed for each individual mask.
-        p: Max proportion of masked rows/cols for each individual mask.
-        mask_value: Value for the masked portions
-    Returns
-        Tensor: Masked spectrogram of dimensions (batch, freq, time)
+    Apply mask along a spectrogram's axis.
+
+    :param specgram:
+        Tensor to mask. *Shape:* :math:`(N,F,T)`, where :math:`N`
+        is the batch size, :math:`F` is the frequency axis, and
+        :math:`T` is the time axis.
+    :param axis:
+        Masking is applied (1: freq, 2: time)
+    :param num_masks:
+        Number of masks
+    :param max_mask_length:
+        Max length allowed for each individual mask.
+    :param max_mask_proportion:
+        Max proportion of masked rows/cols for each individual mask.
+    :param mask_value:
+        Value to fill the masks
+
+    :returns:
+        Masked spectrogram. *Shape:* Same as input.
+    
+    .. note::
+        The length of the mask is randomly chosen, with a cap on max_mask_length.
     """
     if axis not in [1, 2]:
         raise ValueError("Only Frequency and Time masking are supported")
 
-    mask_param = min(mask_param, int(specgram.shape[axis] * p))
-    if mask_param < 1:
+    max_mask_length = min(max_mask_length, int(specgram.shape[axis] * max_mask_proportion))
+    if max_mask_length < 1:
         return specgram
-    
-    value = torch.randint(mask_param, ())
+
+    mask_size = random.randint(max_mask_length)
 
     for _ in range(num_masks):
-        mask_start = torch.randint(specgram.shape[axis] - value, ())
-        mask_end = mask_start + value
+        mask_start = random.randint(specgram.shape[axis] - mask_size)
+        mask_end = mask_start + mask_size
 
         if axis == 1:
-            specgram[:, mask_start: mask_end, :] = mask_value
+            specgram[:, mask_start:mask_end, :] = mask_value
         else:
-            specgram[:, :, mask_start: mask_end] = mask_value
+            specgram[:, :, mask_start:mask_end] = mask_value
 
     return specgram
-
-
 
 
 def spec_augment(
     specgram: Tensor,
-    warp_axis: int = 1,
-    warp_param: int = 0,
-    freq_mask_n: int = 0,
-    freq_mask_param: int = 0,
-    freq_mask_p: float = 0.0,
-    time_mask_n: int = 0,
-    time_mask_param: int = 0,
-    time_mask_p: float = 0.0,
-    mask_value: float = 0.0
-):
+    warp_axis: int = 2,
+    max_warp_length: int = 0,
+    num_freq_mask: int = 0,
+    freq_max_mask_length: int = 0,
+    freq_mask_max_proportion: float = 0.0,
+    num_time_mask: int = 0,
+    time_max_mask_length: int = 0,
+    time_mask_max_proportion: float = 0.0,
+    mask_value: float = 0.0,
+) -> Tensor:
     """
-    SpecAugment to spectrogram with dimensions (batch, frequency, time)
-    Args
-        specgram: Tensor with dimensions (batch, frequency, time)
-        warp_axis: Axis where the warp takes place (0->freq, 1->time)
-        warp_param: Boundaries where warp takes place (W, N - W), (W in paper)
-        freq_mask_n: Number of masks to apply to the frequency axis, (mF in paper)
-        freq_mask_param: Max length of any individual frequency mask, (F in paper)
-        freq_mask_p: Max proportion that any individual freq mask can have
-        time_mask_n: Number of masks to apply to the time axis, (mT in paper)
-        time_mask_param: Max length of any individual time mask, (T in paper)
-        time_mask_p: Max proportion that any individual time mask can have, (p in paper)
-    Returns
-        Tensor: Augmented spectrogram with dimensions (batch, frequency, time)
+    Apply SpecAugment to spectrogram
+
+    :param specgram:
+        Tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)` when
+        unbatched, where :math:`N` is the batch size, :math:`F` is the
+        frequency axis, and :math:`T` is the time axis.
+    :param warp_axis:
+        Axis where the warp takes place (1: freq, 2: time)
+    :param max_warp_length:
+        Boundaries where warp takes place (max_warp_length, N - max_warp_length), (W in paper)
+    :param num_freq_mask:
+        Number of masks to apply to the frequency axis, (mF in paper)
+    :param freq_max_mask_length:
+        Max length of any individual frequency mask, (F in paper)
+    :param freq_mask_max_proportion:
+        Max proportion that any individual freq mask can have
+    :param num_time_mask:
+        Number of masks to apply to the time axis, (mT in paper)
+    :param time_max_mask_length:
+        Max length of any individual time mask, (T in paper)
+    :param time_mask_max_proportion:
+        Max proportion that any individual time mask can have, (p in paper)
+
+    :returns:
+        Augmented spectrogram. *Shape:* Same as input.
     """
-    if specgram.dim() == 2:
-        specgram = specgram.unsqueeze_(0)
 
     specgram = specgram.clone()
-    
-    specgram = warp_axis_torch(specgram, warp_axis, warp_param)
-    specgram = mask_along_axis(specgram, 1, freq_mask_n, freq_mask_param, freq_mask_p, mask_value)
-    specgram = mask_along_axis(specgram, 2, time_mask_n, time_mask_param, time_mask_p, mask_value)
-    return specgram
 
+    if specgram.dim() == 2:
+        specgram = specgram.unsqueeze(0)
 
-# Outdated
-def warp_axis_cv2(specgram, axis:int, W:float):
-    """
-    Warp axis (frequency or time) between W boundaries, starting from point w0, the warp 
-    direction can be negative or positive, depending on the randomly chosen distance w.
-    Args:
-        specgram: A tensor|array with dimensions (freq, time)
-        axis: Axis where the warp is applied (freq -> 1, time -> 2)
-        W: Boundary of time steps where the warp takes place (W, num_warped_axis - W)
-    Returns:
-        tensor | array: Warped spectrogram
-    """
-    num_warped = specgram.shape[axis]
-    num_non_warped = specgram.shape[abs(axis-1)]
-
-    if W == 0:
-        return specgram
-    assert 2 * W < num_warped, (
-        f"W param {W} must be smaller than half the size of the warped axis {num_warped}")
-    
-    w0 = np.random.randint(W, num_warped - W)
-    w = np.random.randint(-W + 1, W)
-
-    if axis == 0:
-        lower, upper = specgram[:w0, :], specgram[w0:, :]
-        lower_sz, upper_sz = (num_non_warped, w0 + w), (num_non_warped, num_warped - w0 - w)
-    else:
-        lower, upper = specgram[:, :w0], specgram[:, w0:]
-        lower_sz, upper_sz = (w0 + w, num_non_warped), (num_warped - w0 - w, num_non_warped)
-
-    import cv2
-    lower = cv2.resize(lower, dsize=lower_sz, interpolation=cv2.INTER_LINEAR)
-    upper = cv2.resize(upper, dsize=upper_sz, interpolation=cv2.INTER_LINEAR,)
-    specgram = np.concatenate((lower, upper), axis=axis)
-
+    specgram = warp_along_axis(specgram, warp_axis, max_warp_length)
+    specgram = mask_along_axis(
+        specgram, 1, num_freq_mask, freq_max_mask_length, freq_mask_max_proportion, mask_value
+    )
+    specgram = mask_along_axis(
+        specgram, 2, num_time_mask, time_max_mask_length, time_mask_max_proportion, mask_value
+    )
     return specgram

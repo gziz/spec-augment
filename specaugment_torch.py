@@ -1,9 +1,9 @@
-from random import random
+import random
 import torch
 from torch import Tensor
 
 
-def warp_axis(specgram: Tensor, axis: int, max_warp_length: int) -> Tensor:
+def warp_along_axis(specgram: Tensor, axis: int, max_warp_length: int) -> Tensor:
     """
     Apply a warp axis to spectrogram.
 
@@ -33,13 +33,13 @@ def warp_axis(specgram: Tensor, axis: int, max_warp_length: int) -> Tensor:
     warped_dim_size = specgram.shape[axis]
     non_warped_dim_size = specgram.shape[1 if axis == 2 else 2]
 
-    if 2 * max_warp_length < warped_dim_size:
+    if 2 * max_warp_length >= warped_dim_size:
         raise ValueError(
             f"max_warp_length param {max_warp_length} must be smaller than half the size of the warped axis {warped_dim_size}")
 
     w0 = random.randint(max_warp_length, warped_dim_size - max_warp_length)
     w = random.randint(-max_warp_length, max_warp_length + 1)
-
+    
     if axis == 1:
         lower, upper = specgram[:, :w0, :], specgram[:, w0:, :]
         lower_sz = (w0 + w, non_warped_dim_size)
@@ -56,8 +56,8 @@ def warp_axis(specgram: Tensor, axis: int, max_warp_length: int) -> Tensor:
     lower = torch.nn.functional.interpolate(lower, size=lower_sz, mode="bilinear")
     upper = torch.nn.functional.interpolate(upper, size=upper_sz, mode="bilinear")
 
-    lower.squeeze(1)
-    upper.squeeze(1)
+    lower = lower.squeeze(1)
+    upper = upper.squeeze(1)
 
     return torch.cat([lower, upper], dim=axis)
 
@@ -160,7 +160,7 @@ def spec_augment(
     if specgram.dim() == 2:
         specgram = specgram.unsqueeze(0)
 
-    specgram = warp_axis(specgram, warp_axis, max_warp_length)
+    specgram = warp_along_axis(specgram, warp_axis, max_warp_length)
     specgram = mask_along_axis(
         specgram, 1, num_freq_mask, freq_max_mask_length, freq_mask_max_proportion, mask_value
     )

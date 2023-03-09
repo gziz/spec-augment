@@ -1,11 +1,11 @@
 import argparse
 
-from transforms import SpecAugmentTransform
-from functional import *
+# from transforms import SpecAugmentTransform
+# from functional import *
 from utils.spectrogram import plot_specgram, create_specgram
-#from final import SpecAugmentTransform, spec_augment
+from specaugment_torch import SpecAugmentTransform, spec_augment
 
-batch_specgram = create_specgram("audio_data/lex_30.wav", batch_sz = 100)
+batch_specgram = create_specgram("audio_data/lex_30.wav", batch_sz=100)
 
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--paradigm", type=str, default="modular")
@@ -13,14 +13,15 @@ parser.add_argument("--loops", type=int, default=1)
 args = parser.parse_args()
 
 params = {
-    "warp_axis": 2,
-    "warp_param": 1000,
-    "freq_mask_n": 3,
-    "freq_mask_param": 30,
-    "freq_mask_p": 0.1,
-    "time_mask_n": 3,
-    "time_mask_param": 500,
-    "time_mask_p": 0.5
+    "warp_axis": 2, 
+    "max_warp_length": 200,
+    "num_freq_mask": 0,
+    "freq_max_mask_length":0,
+    "freq_mask_max_proportion":0,
+    "num_time_mask":0,
+    "time_max_mask_length":0,
+    "time_mask_max_proportion":0,
+    "mask_value":0
 }
 
 if args.paradigm == "modular":
