@@ -25,7 +25,8 @@ def spec_augment(
     :param stretch_axis:
         Axis where the stretch takes place (1: freq, 2: time)
     :param max_stretch_length:
-        Boundaries where stretch takes place (max_stretch_length, N - max_stretch_length), (W in paper)
+        Boundaries where stretch takes place
+        (max_stretch_length, N - max_stretch_length), (W in paper)
     :param num_freq_mask:
         Number of masks to apply to the frequency axis, (mF in paper)
     :param freq_max_mask_length:
@@ -43,8 +44,8 @@ def spec_augment(
         Augmented spectrogram. *Shape:* Same as input.
 
     .. note::
-    The paper implements a time warp while this specAugment implements a time stretch
-    (or stretch to the specified param stretch_axis).
+    The paper implements a time warp while this specAugment implements a
+    time stretch (or stretch to the specified stretch_axis parameter).
     """
 
     specgram = specgram.clone()
@@ -54,10 +55,20 @@ def spec_augment(
 
     specgram = _stretch_along_axis(specgram, stretch_axis, max_stretch_length)
     specgram = _mask_along_axis(
-        specgram, 1, num_freq_mask, freq_max_mask_length, freq_mask_max_proportion, mask_value
+        specgram,
+        1,
+        num_freq_mask,
+        freq_max_mask_length,
+        freq_mask_max_proportion,
+        mask_value,
     )
     specgram = _mask_along_axis(
-        specgram, 2, num_time_mask, time_max_mask_length, time_mask_max_proportion, mask_value
+        specgram,
+        2,
+        num_time_mask,
+        time_max_mask_length,
+        time_mask_max_proportion,
+        mask_value,
     )
     return specgram
 
@@ -72,14 +83,16 @@ def _stretch_along_axis(specgram: Tensor, axis: int, max_stretch_length: int) ->
     :param axis:
         Axis where the stretch takes place
     :param max_stretch_length:
-        Boundary of time steps where the stretch takes place (max_stretch_length, stretched_dim_size - max_stretch_length)
+        Boundary of time steps where the stretch takes place
+        (max_stretch_length, stretched_dim_size - max_stretch_length)
 
     :returns:
         Stretched tensor spectrogram of dimensions (batch, freq, time)
 
     .. note::
-        stretch takes place between the max_stretch_length boundaries, starting from point w0, the stretch
-        direction can be negative or positive, depending on the randomly chosen distance w.
+        stretch takes place between the max_stretch_length boundaries,
+        starting from point w0, the stretch direction can be negative or positive,
+        depending on the randomly chosen distance w.
     """
 
     if max_stretch_length == 0:
@@ -93,7 +106,9 @@ def _stretch_along_axis(specgram: Tensor, axis: int, max_stretch_length: int) ->
 
     if 2 * max_stretch_length >= stretched_dim_size:
         raise ValueError(
-            f"max_stretch_length param {max_stretch_length} must be smaller than half the size of the stretched axis {stretched_dim_size}")
+            f"max_stretch_length param {max_stretch_length} must be smaller \
+                than half the size of the stretched axis {stretched_dim_size}"
+        )
 
     w0 = random.randint(max_stretch_length, stretched_dim_size - max_stretch_length)
     w = random.randint(-max_stretch_length, max_stretch_length + 1)
@@ -155,7 +170,9 @@ def _mask_along_axis(
     if axis not in [1, 2]:
         raise ValueError("Only Frequency and Time masking are supported")
 
-    max_mask_length = min(max_mask_length, int(specgram.shape[axis] * max_mask_proportion))
+    max_mask_length = min(
+        max_mask_length, int(specgram.shape[axis] * max_mask_proportion)
+    )
     if max_mask_length < 1:
         return specgram
 
@@ -180,7 +197,8 @@ class SpecAugmentTransform(torch.nn.Module):
     :param stretch_axis:
         Axis where the stretch takes place (1: freq, 2: time)
     :param max_stretch_length:
-        Boundaries where stretch takes place (max_stretch_length, N - max_stretch_length), (W in paper)
+        Boundaries where stretch takes place
+        (max_stretch_length, N - max_stretch_length), (W in paper)
     :param num_freq_mask:
         Number of masks to apply to the frequency axis, (mF in paper)
     :param freq_max_mask_length:
@@ -229,8 +247,8 @@ class SpecAugmentTransform(torch.nn.Module):
             Augmented spectrogram. *Shape:* Same as input.
 
         .. note::
-        The paper implements a time warp while this specAugment implements a time stretch
-        (or stretch to the specified param stretch_axis).
+        The paper implements a time warp while this specAugment implements a
+        time stretch (or stretch to the specified stretch_axis parameter).
         """
 
         if not self.training:
@@ -248,4 +266,3 @@ class SpecAugmentTransform(torch.nn.Module):
             self.time_mask_max_proportion,
             self.mask_value,
         )
-    
