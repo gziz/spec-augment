@@ -59,8 +59,8 @@ def spec_augment(
     if specgram.dim() == 2:
         specgram = specgram.unsqueeze(0)
 
-    specgram = _stretch_along_axis(specgram, stretch_axis, max_stretch_length)
-    specgram = _mask_along_axis(
+    specgram = stretch_along_axis(specgram, stretch_axis, max_stretch_length)
+    specgram = mask_along_axis(
         specgram=specgram,
         axis=1,
         num_masks=num_freq_masks,
@@ -68,7 +68,7 @@ def spec_augment(
         max_mask_proportion=freq_max_mask_proportion,
         mask_value=mask_value,
     )
-    specgram = _mask_along_axis(
+    specgram = mask_along_axis(
         specgram=specgram,
         axis=2,
         num_masks=num_time_masks,
@@ -79,7 +79,7 @@ def spec_augment(
     return specgram
 
 
-def _stretch_along_axis(specgram: Tensor, axis: int, max_stretch_length: int) -> Tensor:
+def stretch_along_axis(specgram: Tensor, axis: int, max_stretch_length: int) -> Tensor:
     """Apply a stretch to a spectrogram along a specified axis.
 
     :param specgram:
@@ -141,12 +141,12 @@ def _stretch_along_axis(specgram: Tensor, axis: int, max_stretch_length: int) ->
     return torch.cat([lower, upper], dim=axis)
 
 
-def _mask_along_axis(
+def mask_along_axis(
     specgram: Tensor,
     axis: int,
     num_masks: int,
     max_mask_length: int,
-    max_mask_proportion: float = 0.0,
+    max_mask_proportion: float = 1.0,
     mask_value: float = 0.0,
 ) -> Tensor:
     """Mask blocks of channels along a spectrogram's axis.
@@ -271,4 +271,72 @@ class SpecAugmentTransform(Module):
             time_max_mask_proportion=self.time_max_mask_proportion,
             mask_value=self.mask_value,
             training=self.training,
+        )
+
+    @staticmethod
+    def libri_speech_basic() -> "SpecAugmentTransform":
+        """Returns a new instance of SpecAugmentTransform
+        with parameters set for the LibriSpeech basic level.
+        """
+
+        return SpecAugmentTransform(
+            stretch_axis=2,
+            max_stretch_length=80,
+            num_freq_masks=1,
+            freq_max_mask_length=27,
+            freq_max_mask_proportion=1.0,
+            num_time_masks=1,
+            time_max_mask_length=100,
+            time_max_mask_proportion=1.0,
+        )
+
+    @staticmethod
+    def libri_speech_double() -> "SpecAugmentTransform":
+        """Returns a new instance of SpecAugmentTransform
+        with parameters set for the LibriSpeech double level.
+        """
+
+        return SpecAugmentTransform(
+            stretch_axis=2,
+            max_stretch_length=80,
+            num_freq_masks=2,
+            freq_max_mask_length=27,
+            freq_max_mask_proportion=1.0,
+            num_time_masks=2,
+            time_max_mask_length=100,
+            time_max_mask_proportion=1.0,
+        )
+
+    @staticmethod
+    def switchboard_mild() -> "SpecAugmentTransform":
+        """Returns a new instance of SpecAugmentTransform
+        with parameters set for the SwitchBoard mild level.
+        """
+
+        return SpecAugmentTransform(
+            stretch_axis=2,
+            max_stretch_length=40,
+            num_freq_masks=2,
+            freq_max_mask_length=15,
+            freq_max_mask_proportion=1.0,
+            num_time_masks=2,
+            time_max_mask_length=70,
+            time_max_mask_proportion=0.2,
+        )
+
+    @staticmethod
+    def switchboard_strong() -> "SpecAugmentTransform":
+        """Returns a new instance of SpecAugmentTransform
+        with parameters set for the SwitchBoard strong level.
+        """
+
+        return SpecAugmentTransform(
+            stretch_axis=2,
+            max_stretch_length=40,
+            num_freq_masks=2,
+            freq_max_mask_length=27,
+            freq_max_mask_proportion=1.0,
+            num_time_masks=2,
+            time_max_mask_length=70,
+            time_max_mask_proportion=0.2,
         )
